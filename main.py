@@ -10,6 +10,73 @@ def get_text(text: str, color: str, size: int) -> pygame.Surface:
 def to_blit(point):
     return [point[0], 800 - point[1]]
 
+class vector:
+#   __slots__ = ('x', 'y')
+    def __init__(self, x, y = 0):
+        if type(x) == tuple:
+            x, y = x[0], x[1]
+        self.x = float(x)
+        self.y = float(y)
+    def __repr__(self):
+        return "vector"+str((self.x, self.y))
+    #vector addition/subtraction
+    def __add__(self, other):
+        return vector(self.x+other.x, self.y+other.y)
+    def __sub__(self, other):
+        return vector(self.x-other.x, self.y-other.y)
+    def __iadd__(self,other):
+        self.x += other.x; self.y += other.y
+        return self
+    def __isub__(self,other):
+        self.x -= other.x; self.y -= other.y
+        return self
+    #scalar multiplication/division
+    def __mul__(self, other):
+        if isinstance(other, vector):
+            return dot(self, other)
+        else: return vector(self.x*other, self.y*other)
+    def __truediv__(self, other):
+        return vector(self.x/other, self.y/other)
+    def __imul__(self,other):
+        self.x *= other; self.y *= other
+        return self
+    def __idiv__(self, other):
+        self.x /= other; self.y /= other
+        return self
+    def magnitude(self):
+        return distance((self.x, self.y), (0,0))
+    def normalize(self):
+        if (self.x, self.y) == (0,0): return vector(0,0)
+        else: return self/self.magnitude()
+    def rotate(self, other):
+        x = self.x*math.cos(other) - self.y*math.sin(other)
+        y = self.x*math.sin(other) + self.y*math.cos(other)
+        return vector(x, y)
+    def angle(self):
+        return math.atan2(self.y, self.x)
+    def draw(self) -> list:
+        return [self.x, 400-self.y]
+
+def det(a, b, c, d):
+    # | a b |
+    # | c d |
+    return a*d - b*c
+
+def distance2(p, q):
+    if isinstance(p, vector) and isinstance(q, vector):
+        return (p.x-q.x)**2 + (p.y-q.y)**2
+    else:
+        return (p[0]-q[0])**2 + (p[1]-q[1])**2
+
+def distance(p, q):
+    return distance2(p, q)**0.5
+        
+def dot(u, v):
+    return u.x*v.x + u.y*v.y
+
+def cross(u, v):
+    return det(u.x, u.y, v.x, v.y)
+
 async def main():
     pygame.init()
 
@@ -19,7 +86,7 @@ async def main():
     timer = pygame.time.Clock()
     fps = 80
 
-    G = 10
+    G = 100
 
     MASS = 10
     DIST_WHEEL = 40
@@ -28,18 +95,13 @@ async def main():
 
     RANGE_CONSTANT = 100
 
-    pos_cm = [100.0, 30.0]
-    vel_cm = [0.0, 0.0]
-    forces = []
-    pos_l = [-0.5*DIST_WHEEL, 0.0]
-    pos_r = [0.0, 0.5*DIST_WHEEL]
-    forces_l = []
-    forces_r = []
+    pos_cm = vector(100.0, 100.0)
+    vel_cm = vector(0.0, 0.0)
     rotation = 0.0
     ang_vel = 0.0
 
 
-    terrain = lambda x: 30*math.sin(0.5*x)
+    terrain = lambda x: 400-30*math.sin(0.03*x)
     
 
     counter = 0
@@ -54,79 +116,27 @@ async def main():
                 running = False
 
         # update logic
-        
-        ## compute forces_lr
-        ### normal force
-        #### sub: compute shortest distance
-        minima = math.dist((-RANGE_CONSTANT+pos_l[0], terrain(-RANGE_CONSTANT+pos_l[0])), pos_l)
-        critical = -RANGE_CONSTANT+pos_l[0]
-        for x in range(-RANGE_CONSTANT+pos_l[0], RANGE_CONSTANT+pos_l[0]):
-            new = math.dist((x, terrain(x)), pos_l)
-            if minima > new:
-                minima = new
-                critical = x
-        slope_ang = math.atan(terrain(critical+1)-terrain(critical))
-        if slope_ang < 0: slope_ang += math.pi
-        normal_mag = 0.5*MASS*G*math.cos(slope_ang+0.5*math.pi)
-        if minima <= RADIUS_WHEEL:
-            forces_l.append([normal_mag*math.cos(slope_ang+0.5*math.pi), normal_mag*math.sin(slope_ang+0.5*math.pi)]) # compute derivative ->`` normal force
+                
 
-        minima = math.dist((-RANGE_CONSTANT+pos_r[0], terrain(-RANGE_CONSTANT+pos_r[0])), pos_r)
-        critical = -RANGE_CONSTANT+pos_r[0]
-        for x in range(-RANGE_CONSTANT+pos_r[0], RANGE_CONSTANT+pos_r[0]):
-            new = math.dist((x, terrain(x)), pos_r)
-            if minima > new:
-                minima = new
-                critical = x
-        slope_ang = math.atan(terrain(critical+1)-terrain(critical))
-        if slope_ang < 0: slope_ang += math.pi
-        normal_mag = 0.5*MASS*G*math.cos(slope_ang+0.5*math.pi)
-        if minima <= RADIUS_WHEEL:
-            forces_r.append([normal_mag*math.cos(slope_ang+0.5*math.pi), normal_mag*math.sin(slope_ang+0.5*math.pi)]) # compute derivative ->`` normal force
 
-        ### gravity
-        forces_r.append([0, -0.5*MASS*G])
-        forces_l.append([0, -0.5*MASS*G])
-
-        ## force and torque
-        summed = [0.0, 0.0]
-        torque = 0.0
-        
-        r_l = [pos_l[0]-pos_cm[0], pos_l[1]-pos_cm[1]]
-        r_r = [pos_r[0]-pos_cm[0], pos_r[1]-pos_cm[1]]
-
-        for force in forces_r:
-            summed[0] += force[0]
-            summed[1] += force[1]
-
-            torque += math.sqrt([0, 0], force)*math.dist([0,0], r_r)*math.sin((force[0]*r_r[0]+force[1]*r_r[1])/abs(math.sqrt([0, 0], force)*math.dist([0,0], r_r)))
-        for force in forces_l:
-            summed[0] += force[0]
-            summed[1] += force[1]
-            torque += math.sqrt([0, 0], force)*math.dist([0,0], r_l)*math.sin((force[0]*r_l[0]+force[1]*r_l[1])/abs(math.sqrt([0, 0], force)*math.dist([0,0], r_l)))
-
-        ## update position
-
-        ang_vel += torque*elapsed/MOMENT
-        rotation += ang_vel*elapsed + 0.5*torque*elapsed*elapsed/MOMENT
-
-        vel_cm[0] += summed[0]*elapsed/MASS; vel_cm[1] += summed[1]*elapsed/MASS
-        pos_cm[0] += vel_cm[0]*elapsed + 0.5*summed[0]*elapsed*elapsed/MOMENT
-        pos_cm[1] += vel_cm[1]*elapsed + 0.5*summed[1]*elapsed*elapsed/MOMENT
-
-        ## compute pos_lr
-
-        pos_l = [pos_cm[0]-0.5*DIST_WHEEL*math.cos(rotation), pos_cm[1]-0.5*DIST_WHEEL*math.sin(rotation)]
-        pos_r = [pos_cm[0]+0.5*DIST_WHEEL*math.cos(rotation), pos_cm[1]+0.5*DIST_WHEEL*math.sin(rotation)]
+        ## pos_lr
+        pos_l = vector(pos_cm.x-0.5*DIST_WHEEL*math.cos(rotation), pos_cm.y-0.5*DIST_WHEEL*math.sin(rotation))
+        pos_r = vector(pos_cm.x+0.5*DIST_WHEEL*math.cos(rotation), pos_cm.y+0.5*DIST_WHEEL*math.sin(rotation))
 
 
         # draw
         screen.fill('black')
-        text_surface = get_text(str(timer.get_fps()), 'white', 50)
+        text_surface = get_text(str(elapsed), 'white', 50)
         screen.blit(text_surface, (100, 100))
 
-        for x in range(0, WIDTH):
-            x 
+        for x in range(0, WIDTH-1):
+            pygame.draw.line(screen, 'white', (x, terrain(x)), (x+1, terrain(x+1)), 4)
+
+        ## bike
+        pygame.draw.circle(screen, 'white', pos_l.draw(), RADIUS_WHEEL)
+        pygame.draw.circle(screen, 'yellow', pos_r.draw(), RADIUS_WHEEL)
+        pygame.draw.line(screen, 'white', pos_l.draw(), pos_r.draw(), 3)
+
 
         pygame.display.flip()
 
