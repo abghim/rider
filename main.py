@@ -212,9 +212,9 @@ class solidLine(Line):
 timeDelta = delta = 10 #100 hz/fps
 grav = vector(0, 30.0/1000*delta) #pixels per frame**2
 drag = 0.9999999**delta
-acc = 0.1*delta #acceleration line constant
+acc = 20 #acceleration line constant
 epsilon = 0.00000000001 #larger than floating point errors
-lineThickness = 0.001
+lineThickness = 0.1
 endurance = 0.4
 gridSize = 50
 iterations = 10
@@ -346,6 +346,7 @@ def resolveCollision(circle: Circle):
 
         # If no collisions, we're done this frame
         if len(collisionPoints) == 0:
+            return None
             break
         
         # If multiple collisions, pick the one whose intersection is closest
@@ -366,6 +367,8 @@ def resolveCollision(circle: Circle):
         # or deeper penetrations require iterative resolution)
         hasCollided = True
         maxiter -= 1
+
+    return collidingLine
 
 
 def getCollidingLines(circle: Circle, lines):
@@ -536,19 +539,20 @@ async def main():
     MOMENT = 2*MASS_WHEEL*(DIST_WHEEL**2)
     RADIUS_WHEEL = 10
 
-    RANGE_CONSTANT = 100
 
-    front = vector(200, 720)
-    back = vector(200+DIST_WHEEL, 720)
+    front = vector(100, 720)
+    back = vector(100+DIST_WHEEL, 720)
+
+    fcoll, bcoll = None, None
 
 
 
-    terrain = lambda x: 400-100*math.sin(0.015*x)
+    terrain = lambda x: 400-(10*math.sin(0.015*x)+20*math.sin(0.01*x))
 
     global track
     track = []
-    for x in range(0, WIDTH-1, 5):
-        track.append(solidLine((x, terrain(x)), (x+5, terrain(x+5))))
+    for x in range(0, WIDTH-1, 10):
+        track.append(solidLine((x, terrain(x)), (x+10, terrain(x+10))))
     print(len(track))    
 
 
@@ -556,6 +560,7 @@ async def main():
     back = Circle(back, RADIUS_WHEEL)
     bike = Constraint(front.center, back.center, DIST_WHEEL)
 
+    acc = 0
 
     counter = 0
     elapsed = 0
@@ -568,7 +573,15 @@ async def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            
+            if event.type == pygame.KEYDOWN:
+                acc = 5
+                print("f")
+                front.acc()
+                back.acc()
+            if event.type == pygame.KEYUP:
+                acc = 0
+                front.un_acc()
+                back.un_acc()
 
         # update logic
         
@@ -584,13 +597,22 @@ async def main():
         freefall(back.center)
         back.center.r0 = pastpos
 
+        if fcoll != None and front._acc:
+            print(fcoll)
+            acc += 1
+            front.center.r += ((fcoll.r2 - fcoll.r1).normalize())*acc
+        if bcoll != None and back._acc:
+            acc += 1
+            print(bcoll)
+            back.center.r += ((bcoll.r2 - bcoll.r1).normalize())*acc
+        if fcoll == None and bcoll == None and front._acc:
+            # rotate
+            pass
+
         resolveConstraint(bike)
+        fcoll = resolveCollision(front)
+        bcoll = resolveCollision(back)
 
-        resolveCollision(front)
-        resolveCollision(back)
-
-        # accelerations
-        # rotations
 
 
 
@@ -600,7 +622,7 @@ async def main():
         screen.blit(text_surface, (100, 100))
 
         for l in track:
-            pygame.draw.line(screen, 'white', to_blit((l.r1.x, l.r1.y)), to_blit((l.r2.x, l.r2.y)), 4)
+            pygame.draw.line(screen, 0xff85bc, to_blit((l.r1.x, l.r1.y)), to_blit((l.r2.x, l.r2.y)), 4)
 
         pygame.draw.circle(screen, 'white', to_blit((front.center.r.x, front.center.r.y)), RADIUS_WHEEL)
         pygame.draw.circle(screen, 'white', to_blit((back.center.r.x, back.center.r.y)), RADIUS_WHEEL)
