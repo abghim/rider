@@ -214,7 +214,7 @@ grav = vector(0, 30.0/1000*delta) #pixels per frame**2
 drag = 0.9999999**delta
 acc = 20 #acceleration line constant
 epsilon = 0.00000000001 #larger than floating point errors
-lineThickness = 0.1
+lineThickness = 0.0001
 endurance = 0.4
 gridSize = 50
 iterations = 10
@@ -525,7 +525,7 @@ async def main():
     HEIGHT = 800
     screen = pygame.display.set_mode([WIDTH, HEIGHT])
     timer = pygame.time.Clock()
-    fps = 40
+    fps = 100
 
 
     
@@ -551,8 +551,8 @@ async def main():
 
     global track
     track = []
-    for x in range(0, WIDTH-1, 10):
-        track.append(solidLine((x, terrain(x)), (x+10, terrain(x+10))))
+    for x in range(0, WIDTH-1, 20):
+        track.append(solidLine((x, terrain(x)), (x+20, terrain(x+20))))
     print(len(track))    
 
 
@@ -560,7 +560,8 @@ async def main():
     back = Circle(back, RADIUS_WHEEL)
     bike = Constraint(front.center, back.center, DIST_WHEEL)
 
-    acc = 0
+    acc = 5
+    acct = 0
 
     counter = 0
     elapsed = 0
@@ -574,12 +575,12 @@ async def main():
             if event.type == pygame.QUIT:
                 running = False
             if event.type == pygame.KEYDOWN:
-                acc = 5
+
                 print("f")
                 front.acc()
                 back.acc()
             if event.type == pygame.KEYUP:
-                acc = 0
+                acct = 0
                 front.un_acc()
                 back.un_acc()
 
@@ -599,12 +600,12 @@ async def main():
 
         if fcoll != None and front._acc:
             print(fcoll)
-            acc += 1
-            front.center.r += ((fcoll.r2 - fcoll.r1).normalize())*acc
+            acct += 0.03
+            front.center.r += ((fcoll.r2 - fcoll.r1).normalize())*acc*acct**2
         if bcoll != None and back._acc:
-            acc += 1
+            acct += 0.03
             print(bcoll)
-            back.center.r += ((bcoll.r2 - bcoll.r1).normalize())*acc
+            back.center.r += ((bcoll.r2 - bcoll.r1).normalize())*acc*acct**2
         if fcoll == None and bcoll == None and front._acc:
             # rotate
             pass
