@@ -1,10 +1,14 @@
 from collections import deque
-from curses import BUTTON1_RELEASED
+import sys
 import pygame
 import pymunk
 import asyncio
 import math
 import time
+
+def get_text(text:str, color:str, size:int) -> pygame.Surface:
+    font = pygame.font.Font('Orbitron-Black.ttf', size)
+    return font.render(text, True, color)
 
 def grad_color(c:tuple):
     r, g, b = c
@@ -92,7 +96,7 @@ async def main():
     RADIUS_WHEEL = 10
     DIST_WHEEL = 75
 
-    SPEED_LIMIT = 10
+    SPEED_LIMIT = 15
 
     STEP = 20
 
@@ -107,13 +111,16 @@ async def main():
     g_yellow = grad_color((255, 255, 0))
     g_magenta = grad_color((255, 0, 255))
 
-    color_track = g_yellow
-
+    color_track = grad_color((142, 36, 255))
     terrain = lambda x: 600-90*math.sin(0.01*x)
     track = deque()
 
     space = pymunk.Space()
     space.gravity = (0, GRAVITY)
+
+######################
+#    bike wheels     #
+######################
 
     front = pymunk.Body(MASS, 500, pymunk.Body.DYNAMIC)
     front.position = (INIT_X, INIT_Y)
@@ -131,9 +138,26 @@ async def main():
     
     frame = pymunk.constraints.PinJoint(front, back)
 
+#################
+#   bike hull   #
+#################
+    COLLTYPE_HULL = 4
     COLLTYPE_WHEEL_F = 1
     COLLTYPE_WHEEL_B = 3
     COLLTYPE_TERRAIN = 2
+
+    line_body = pymunk.Body(pymunk.Body.KINEMATIC)
+
+    bike_orientation = 0
+    normal = vector(-math.sin(bike_orientation), math.cos(bike_orientation))
+    point1 = ((vector(front.position)+vector(back.position))*0.5 + normal*(0.1*DIST_WHEEL)).Tuple()
+    point2 = (vector(back.position)+normal*(0.14*DIST_WHEEL)).Tuple()
+    point3 = ((vector(front.position)+vector(back.position))*0.5 + normal*(0.3*DIST_WHEEL)).Tuple()
+    point4 = (vector(front.position)+normal*(0.14*DIST_WHEEL)).Tuple()
+    hull = pymunk.Poly(line_body, [back.position, point1, front.position, point4, point3, point2])
+    hull.collision_type = COLLTYPE_HULL
+    space.add(hull, line_body)
+    
 
 
 
@@ -156,7 +180,6 @@ async def main():
 
     front_shape.collision_type = COLLTYPE_WHEEL_F
     back_shape.collision_type = COLLTYPE_WHEEL_B
-
 
     hitb = False
     hitf = False
@@ -206,10 +229,23 @@ async def main():
 
     handler_f = space.add_collision_handler(COLLTYPE_WHEEL_F, COLLTYPE_TERRAIN)
     handler_b = space.add_collision_handler(COLLTYPE_WHEEL_B, COLLTYPE_TERRAIN)
+    handler_ignore_b = space.add_collision_handler(COLLTYPE_WHEEL_B, COLLTYPE_HULL)
+    handler_ignore_f = space.add_collision_handler(COLLTYPE_WHEEL_F, COLLTYPE_HULL)
+    handler_death = space.add_collision_handler(COLLTYPE_HULL, COLLTYPE_TERRAIN)
+
     handler_f.begin = front_begin
     handler_f.separate = front_separate
     handler_b.begin = back_begin
     handler_b.separate = back_separate
+
+    def ignore_f(a, b, c): print("ignore_F"); return False
+    def ignore_b(a, b, c): print("ignore_B"); return False
+    def death(a, b, c): print("DEATH"); return True
+
+    handler_ignore_f.begin = ignore_f
+    handler_ignore_b.begin = ignore_b
+
+    handler_death.begin = death
 
     space.add(front, front_shape, back, back_shape, frame)
 
@@ -218,6 +254,8 @@ async def main():
 
     click = False
     running = True
+
+
 
     def relative(x):
         return (vector(x) - vector(front.position[0] - OFFSET, 0)).Tuple()
@@ -240,7 +278,6 @@ async def main():
             trk_shape.friction = 0.2
             track.append(trk_shape)
             space.add(trk_shape)
-
 
 
         # events
@@ -267,17 +304,15 @@ async def main():
         omega = bike_orientation-bo_before
 
         speed = (vector(front.position)-fp_before).magnitude()
-        print(speed)
 
         # speed limit
-        if hitb and click and colb != None:
+        if hitb and colb != None:
             vb = (vector(colb.b) - vector(colb.a)).normalize() * THRUST*0.2*(SPEED_LIMIT-speed)
-            back.apply_force_at_world_point(vb.Tuple(), back.position)
+            if click: back.apply_force_at_world_point(vb.Tuple(), back.position)
 
-        if hitf and click and colf != None:
+        if hitf and colf != None:
             vf = (vector(colf.b) - vector(colf.a)).normalize() * THRUST*0.2*(SPEED_LIMIT-speed)#THRUST
-            front.apply_force_at_world_point(vf.Tuple(), front.position)
-            
+            if click: front.apply_force_at_world_point(vf.Tuple(), front.position)
 
         if not hitf and not hitb and click and abs(omega)<0.08:
             rb = vector(-math.sin(bike_orientation),
@@ -308,6 +343,8 @@ async def main():
         point4 = vector(front.position)+normal*(0.14*DIST_WHEEL)
         pygame.draw.polygon(screen, 'blue', [relative(back.position), relative( point1.Tuple()), relative(front.position), relative(point4.Tuple()), relative(point3.Tuple()), relative(point2.Tuple())])
 
+        if point3.y > terrain(point3.x) or point2.y > terrain(point2.x) or point4.y>terrain(point4.x):
+            sys.exit()
 
         for t in track:
             pygame.draw.line(screen, color_track[0], relative(t.a), relative(t.b), 38)
