@@ -96,23 +96,15 @@ async def main():
     RADIUS_WHEEL = 10
     DIST_WHEEL = 75
 
-    SPEED_LIMIT = 15
+    SPEED_LIMIT = 17
 
-    STEP = 20
-
-    # bikeimg_len = 1.8*DIST_WHEEL
-    # bikeimg = pygame.image.load("bike.png")
-    # bikeimg = pygame.transform.scale(bikeimg, (bikeimg_len, bikeimg_len*346/722))
-    # back_vec = vector(182, 134).normalize()*bikeimg_len*(2/9)
-
-
+    STEP = 10
 
     g_green = grad_color((0, 255, 0))
     g_yellow = grad_color((255, 255, 0))
     g_magenta = grad_color((255, 0, 255))
 
-    color_track = grad_color((142, 36, 255))
-    terrain = lambda x: 600-90*math.sin(0.01*x)
+    color_track = grad_color((255, 0, 255))
     track = deque()
 
     space = pymunk.Space()
@@ -127,14 +119,14 @@ async def main():
     front_shape = pymunk.Circle(front, RADIUS_WHEEL)
     front_shape.density = 1
     front_shape.elasticity = 0.0
-    front_shape.friction = 0.2
+    front_shape.friction = 0.4
     
     back = pymunk.Body(MASS, 500, pymunk.Body.DYNAMIC)
     back.position = (INIT_X+DIST_WHEEL, INIT_Y)
     back_shape = pymunk.Circle(back, RADIUS_WHEEL)
     back_shape.density = 1
     back_shape.elasticity = 0.0
-    back_shape.friction = 0.2
+    back_shape.friction = 0.4
     
     frame = pymunk.constraints.PinJoint(front, back)
 
@@ -146,37 +138,55 @@ async def main():
     COLLTYPE_WHEEL_B = 3
     COLLTYPE_TERRAIN = 2
 
-    line_body = pymunk.Body(pymunk.Body.KINEMATIC)
 
-    bike_orientation = 0
-    normal = vector(-math.sin(bike_orientation), math.cos(bike_orientation))
-    point1 = ((vector(front.position)+vector(back.position))*0.5 + normal*(0.1*DIST_WHEEL)).Tuple()
-    point2 = (vector(back.position)+normal*(0.14*DIST_WHEEL)).Tuple()
-    point3 = ((vector(front.position)+vector(back.position))*0.5 + normal*(0.3*DIST_WHEEL)).Tuple()
-    point4 = (vector(front.position)+normal*(0.14*DIST_WHEEL)).Tuple()
-    hull = pymunk.Poly(line_body, [back.position, point1, front.position, point4, point3, point2])
-    hull.collision_type = COLLTYPE_HULL
-    space.add(hull, line_body)
-    
+# types of terrains: 
+# - flat
+# - x**2 ramp
+# - sine mountain
+# - half-circle tracks
+# - three shallow mid-air bowls
+# - triangular
+# - sliced ramps /  /  /  /
+# - exp(x)-0 cliffs
+# - rings
+# - straight ramp
 
+
+    t1 = lambda x:600-100-80*math.sin(0.01*x)
+    t2 = lambda x:600-100-200*math.sin(0.004*x)
+
+    # def _t2(x):
+    #     if 0<=x<200:
+    #         return None
+    #     elif 200<=x<340:
+    #         return 600-1.72*(x-350)-300
+    #     elif 340<=x<
+    #     elif 360<=x<500:
+    #         return 600+1.72*(x-350)-300
+    #     else:
+    #         return None
+
+
+    terrain = t1
 
 
     i = 0
     for x in range(0, WIDTH-1, STEP):
-        trk_shape = pymunk.Segment(
-            space.static_body,
-            (x, terrain(x)),
-            (x+STEP, terrain(x+STEP)),
-            5
-        )
-        trk_shape.density = 1
-        trk_shape.collision_type = COLLTYPE_TERRAIN
-        trk_shape.user_data = i  
-        trk_shape.elasticity = 0
-        trk_shape.friction = 0.2
-        track.append(trk_shape)
-        space.add(trk_shape)
-        i += 1
+        if terrain(x) != None and terrain(x+STEP)!= None:
+            trk_shape = pymunk.Segment(
+                space.static_body,
+                (x, terrain(x)),
+                (x+STEP, terrain(x+STEP)),
+                5
+            )
+            trk_shape.density = 1
+            trk_shape.collision_type = COLLTYPE_TERRAIN
+            trk_shape.user_data = i  
+            trk_shape.elasticity = 0
+            trk_shape.friction = 0.4
+            track.append(trk_shape)
+            space.add(trk_shape)
+            i += 1
 
     front_shape.collision_type = COLLTYPE_WHEEL_F
     back_shape.collision_type = COLLTYPE_WHEEL_B
@@ -189,7 +199,7 @@ async def main():
 
     timeb = 0.0
     timef = 0.0
-    THRESH = 0.1
+    THRESH = 0.2
 
     def front_begin(arbiter, space, data):
         nonlocal hitf, timef, colf
@@ -229,31 +239,41 @@ async def main():
 
     handler_f = space.add_collision_handler(COLLTYPE_WHEEL_F, COLLTYPE_TERRAIN)
     handler_b = space.add_collision_handler(COLLTYPE_WHEEL_B, COLLTYPE_TERRAIN)
-    handler_ignore_b = space.add_collision_handler(COLLTYPE_WHEEL_B, COLLTYPE_HULL)
-    handler_ignore_f = space.add_collision_handler(COLLTYPE_WHEEL_F, COLLTYPE_HULL)
-    handler_death = space.add_collision_handler(COLLTYPE_HULL, COLLTYPE_TERRAIN)
 
     handler_f.begin = front_begin
     handler_f.separate = front_separate
     handler_b.begin = back_begin
     handler_b.separate = back_separate
 
-    def ignore_f(a, b, c): print("ignore_F"); return False
-    def ignore_b(a, b, c): print("ignore_B"); return False
-    def death(a, b, c): print("DEATH"); return True
-
-    handler_ignore_f.begin = ignore_f
-    handler_ignore_b.begin = ignore_b
-
-    handler_death.begin = death
-
     space.add(front, front_shape, back, back_shape, frame)
+
+##########################
+#    types of terrains   #
+##########################
+
+
+
 
     bo_before = 0
     fp_before = vector(front.position)
 
+
     click = False
     running = True
+
+    flipping = False
+    flipping_before = False
+    start = None
+
+    count = 0
+    score = 0
+
+    x_shift = 0
+    y_shift = 0
+
+    th2 = 1000
+    th3 = 1000
+    th4 = 1000
 
 
 
@@ -261,23 +281,39 @@ async def main():
         return (vector(x) - vector(front.position[0] - OFFSET, 0)).Tuple()
 
     while running:
+
+        # switching terrains
+
         while track and (track[0].a[0] < front.position[0] - OFFSET-90):
             old_seg = track.popleft()
             space.remove(old_seg)
-            x = old_seg.a[0]+WIDTH
-            trk_shape = pymunk.Segment(
-                space.static_body,
-                (x, terrain(x)),
-                (x+STEP, terrain(x+STEP)),
-                5
-            )
-            trk_shape.density = 1
-            trk_shape.collision_type = COLLTYPE_TERRAIN
-            trk_shape.user_data = len(track)
-            trk_shape.elasticity = 0.0
-            trk_shape.friction = 0.2
-            track.append(trk_shape)
-            space.add(trk_shape)
+            if terrain(x) != None and terrain(x+STEP)!= None:
+                x = old_seg.a[0]+WIDTH
+                if round(x) % 400 == 0:
+                    t_before = terrain
+                    new_terrain = t2 if terrain == t1 else t1
+
+                    old_val = t_before(x - x_shift) + y_shift
+                    terrain = new_terrain
+                    new_val = terrain(x - x_shift)
+
+                    delta_y = old_val - new_val
+                    y_shift = delta_y
+
+
+                trk_shape = pymunk.Segment(
+                    space.static_body,
+                    (x, terrain(x-x_shift)+y_shift),
+                    (x+STEP, terrain(x+STEP-x_shift)+y_shift),
+                    5
+                )
+                trk_shape.density = 1
+                trk_shape.collision_type = COLLTYPE_TERRAIN
+                trk_shape.user_data = len(track)
+                trk_shape.elasticity = 0.0
+                trk_shape.friction = 0.5
+                track.append(trk_shape)
+                space.add(trk_shape)
 
 
         # events
@@ -289,6 +325,8 @@ async def main():
             if event.type == pygame.KEYUP or event.type == pygame.MOUSEBUTTONUP:
                 click = False
         
+
+
         # prevent 'collision hangovers'
         if colf != None:
             midf = (vector(colf.a)+vector(colf.b))*0.5
@@ -302,6 +340,12 @@ async def main():
 
         bike_orientation = (vector(front.position) - vector(back.position)).getAngle()
         omega = bike_orientation-bo_before
+
+        if start != None:
+            if bo_before <= start <= bike_orientation and omega>0:
+                count += 1
+                score += 1
+
 
         speed = (vector(front.position)-fp_before).magnitude()
 
@@ -327,31 +371,73 @@ async def main():
             rf = rb * (-1)
             back.apply_force_at_world_point(rb.Tuple(), back.position)
             front.apply_force_at_world_point(rf.Tuple(), front.position)
+        if not hitf and not hitb and abs(omega)>0.12:
+            rb = vector(math.sin(bike_orientation),
+            -math.cos(bike_orientation))  *ROTATIONAL_THRUST * abs(omega)/omega
+            rf = rb * (-1)
+            back.apply_force_at_world_point(rb.Tuple(), back.position)
+            front.apply_force_at_world_point(rf.Tuple(), front.position)
+
+
+        if not hitf and not hitb: # is flipping
+            if not flipping_before: # start of flip
+                start = bike_orientation
+                count = 0
+            flipping = True
+        else:
+            flipping = False
+            if flipping_before: # end of flip
+                start = None
+
+ 
+        flipping_before = flipping
 
         bo_before = bike_orientation
         fp_before = vector(front.position)
-
-
 
         # draw
         screen.fill('black')
 
         normal = vector(-math.sin(bike_orientation), math.cos(bike_orientation))
-        point1 = (vector(front.position)+vector(back.position))*0.5 + normal*(0.1*DIST_WHEEL)
-        point2 = vector(back.position)+normal*(0.14*DIST_WHEEL)
-        point3 = (vector(front.position)+vector(back.position))*0.5 + normal*(0.3*DIST_WHEEL)
-        point4 = vector(front.position)+normal*(0.14*DIST_WHEEL)
+        point1 = (vector(front.position)+vector(back.position))*0.5 + normal*(0.05*DIST_WHEEL)
+        point2 = vector(back.position)+normal*(0.25*DIST_WHEEL)
+        point3 = (vector(front.position)+vector(back.position))*0.5 + normal*(0.4*DIST_WHEEL)
+        point4 = vector(front.position)+normal*(0.25*DIST_WHEEL)
         pygame.draw.polygon(screen, 'blue', [relative(back.position), relative( point1.Tuple()), relative(front.position), relative(point4.Tuple()), relative(point3.Tuple()), relative(point2.Tuple())])
 
-        if point3.y > terrain(point3.x) or point2.y > terrain(point2.x) or point4.y>terrain(point4.x):
-            sys.exit()
+
+
+
+
 
         for t in track:
-            pygame.draw.line(screen, color_track[0], relative(t.a), relative(t.b), 38)
-            pygame.draw.line(screen, color_track[1], relative(t.a), relative(t.b), 30)
-            pygame.draw.line(screen, color_track[2], relative(t.a), relative(t.b), 24)
-            pygame.draw.line(screen, color_track[3], relative(t.a), relative(t.b), 16)
-            pygame.draw.line(screen, 'white', relative(t.a), relative(t.b), 8)
+            if distance(vector(t.a), vector(t.b)) < 2*STEP:
+                pygame.draw.line(screen, color_track[0], relative(t.a), relative(t.b), 38)
+                pygame.draw.line(screen, color_track[1], relative(t.a), relative(t.b), 30)
+                pygame.draw.line(screen, color_track[2], relative(t.a), relative(t.b), 24)
+                pygame.draw.line(screen, color_track[3], relative(t.a), relative(t.b), 16)
+                pygame.draw.line(screen, 'white', relative(t.a), relative(t.b), 8)
+
+        for t in track:
+            if distance(vector(t.a), vector(t.b)) < 2*STEP:
+                if t.a[0] <= point2.x < t.b[0]:
+                    th2 = 0.5*(t.a[1]+t.b[1])
+                if t.a[0] <= point3.x < t.b[0]:
+                    th3 = 0.5*(t.a[1]+t.b[1])
+                if t.a[0] <= point4.x < t.b[0]:
+                    th4 = 0.5*(t.a[1]+t.b[1])
+                if terrain(point3.x-x_shift) != None and terrain(point2.x-x_shift) != None and terrain(point4.x-x_shift) != None:
+                    if point3.y+4 > th3 or point2.y+4 > th2 or point4.y+4>th4:
+                        sys.exit()
+
+
+
+        pygame.draw.circle(screen, 'red', relative(point2.Tuple()), 4)
+        pygame.draw.circle(screen, 'red', relative(point3.Tuple()), 4)
+        pygame.draw.circle(screen, 'red', relative(point4.Tuple()), 4)
+        pygame.draw.circle(screen, 'red', relative((point2.x, th2)), 4)
+        pygame.draw.circle(screen, 'red', relative((point3.x, th3)), 4)
+        pygame.draw.circle(screen, 'red', relative((point4.x, th3)), 4)
 
 
         pygame.draw.circle(screen, 'white',
@@ -363,6 +449,7 @@ async def main():
             RADIUS_WHEEL
         )
 
+        screen.blit(get_text(f"{score}", (100, 100, 100), 100), (0.5*(WIDTH-100), 10))
 
         pygame.display.flip()
 
