@@ -119,6 +119,7 @@ async def main():
                 counter += 1
 
                 await asyncio.sleep(0)
+            time.sleep(1)
             with open("score.tsv", "a") as f:
                 f.write(f"{''.join(sid)}\t{score}\n")
         
