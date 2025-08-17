@@ -8,81 +8,81 @@ import math
 import time
 
 
-def blit_rotated_circle(screen, circle_image, x, y, angle):
-    rotated_image = pygame.transform.rotate(circle_image, angle)
-    rotated_rect = rotated_image.get_rect(center=(x, y))
-    screen.blit(rotated_image, rotated_rect)
-
-def get_text(text:str, color:str, size:int) -> pygame.Surface:
-    font = pygame.font.Font('Orbitron-Black.ttf', size)
-    return font.render(text, True, color)
-
-def grad_color(c:tuple):
-    r, g, b = c
-    return ((0.2*r, 0.2*g, 0.2*b), (0.4*r, 0.4*g, 0.4*b), (0.6*r, 0.6*g, 0.6*b), (0.8*r, 0.8*g, 0.8*b), c)
-
-class vector(object):
-    def __init__(self, x, y = 0):
-        if type(x) == float or type(x) == int:
-            self.x = float(x)
-            self.y = float(y)
-        else:
-            self.x, self.y = x[0], x[1]
-    def __repr__(self) -> str:
-        return f"{self.x}i + {self.y}j"
-    def __add__(self, other):
-        return vector(self.x+other.x, self.y+other.y)
-    def __sub__(self, other):
-        return vector(self.x-other.x, self.y-other.y)
-    def __iadd__(self,other):
-        self.x += other.x; self.y += other.y
-        return self
-    def __isub__(self,other):
-        self.x -= other.x; self.y -= other.y
-        return self
-    def __mul__(self, other):
-        if isinstance(other, vector):
-            return dot(self, other)
-        else: return vector(self.x*other, self.y*other)
-    def __truediv__(self, other):
-        return vector(self.x/other, self.y/other)
-    def __imul__(self,other):
-        self.x *= other; self.y *= other
-        return self
-    def __idiv__(self, other):
-        self.x /= other; self.y /= other
-        return self
-    def magnitude(self):
-        return distance((self.x, self.y), (0,0))
-    def normalize(self):
-        if (self.x, self.y) == (0,0): return vector(0,0)
-        else: return self/self.magnitude()
-    def rotate(self, other):
-        x = self.x*math.cos(other) - self.y*math.sin(other)
-        y = self.x*math.sin(other) + self.y*math.cos(other)
-        return vector(x, y)
-    def getAngle(self):
-        return math.atan2(self.y, self.x)  # safer than math.atan(.../...)
-    def Tuple(self):
-        return (self.x, self.y)
-        
-def distance2(p, q):
-    """distance squared between these points"""
-    if isinstance(p, vector) and isinstance(q, vector):
-        return (p.x-q.x)**2 + (p.y-q.y)**2
-    else:
-        return (p[0]-q[0])**2 + (p[1]-q[1])**2
-
-def distance(p, q):
-    """distance between these points"""
-    return distance2(p, q)**0.5
-        
-def dot(u, v):
-    """dot product of these vectors, a scalar"""
-    return u.x*v.x + u.y*v.y
-
 
 async def main():
+    def blit_rotated_circle(screen, circle_image, x, y, angle):
+        rotated_image = pygame.transform.rotate(circle_image, angle)
+        rotated_rect = rotated_image.get_rect(center=(x, y))
+        screen.blit(rotated_image, rotated_rect)
+
+    def get_text(text:str, color:str, size:int) -> pygame.Surface:
+        font = pygame.font.Font('Orbitron-Black.ttf', size)
+        return font.render(text, True, color)
+
+    def grad_color(c:tuple):
+        r, g, b = c
+        return ((0.2*r, 0.2*g, 0.2*b), (0.4*r, 0.4*g, 0.4*b), (0.6*r, 0.6*g, 0.6*b), (0.8*r, 0.8*g, 0.8*b), c)
+
+    class vector(object):
+        def __init__(self, x, y = 0):
+            if type(x) == float or type(x) == int:
+                self.x = float(x)
+                self.y = float(y)
+            else:
+                self.x, self.y = x[0], x[1]
+        def __repr__(self) -> str:
+            return f"{self.x}i + {self.y}j"
+        def __add__(self, other):
+            return vector(self.x+other.x, self.y+other.y)
+        def __sub__(self, other):
+            return vector(self.x-other.x, self.y-other.y)
+        def __iadd__(self,other):
+            self.x += other.x; self.y += other.y
+            return self
+        def __isub__(self,other):
+            self.x -= other.x; self.y -= other.y
+            return self
+        def __mul__(self, other):
+            if isinstance(other, vector):
+                return dot(self, other)
+            else: return vector(self.x*other, self.y*other)
+        def __truediv__(self, other):
+            return vector(self.x/other, self.y/other)
+        def __imul__(self,other):
+            self.x *= other; self.y *= other
+            return self
+        def __idiv__(self, other):
+            self.x /= other; self.y /= other
+            return self
+        def magnitude(self):
+            return distance((self.x, self.y), (0,0))
+        def normalize(self):
+            if (self.x, self.y) == (0,0): return vector(0,0)
+            else: return self/self.magnitude()
+        def rotate(self, other):
+            x = self.x*math.cos(other) - self.y*math.sin(other)
+            y = self.x*math.sin(other) + self.y*math.cos(other)
+            return vector(x, y)
+        def getAngle(self):
+            return math.atan2(self.y, self.x)  # safer than math.atan(.../...)
+        def Tuple(self):
+            return (self.x, self.y)
+
+    def distance2(p, q):
+        """distance squared between these points"""
+        if isinstance(p, vector) and isinstance(q, vector):
+            return (p.x-q.x)**2 + (p.y-q.y)**2
+        else:
+            return (p[0]-q[0])**2 + (p[1]-q[1])**2
+
+    def distance(p, q):
+        """distance between these points"""
+        return distance2(p, q)**0.5
+
+    def dot(u, v):
+        """dot product of these vectors, a scalar"""
+        return u.x*v.x + u.y*v.y
+
     pygame.init()
     run_game = True
 
@@ -122,7 +122,7 @@ async def main():
             time.sleep(1)
             with open("score.tsv", "a") as f:
                 f.write(f"{''.join(sid)}\t{score}\n")
-        
+
 
 
 
@@ -206,14 +206,14 @@ async def main():
         front_shape.density = 1
         front_shape.elasticity = 0.0
         front_shape.friction = 0.4
-        
+
         back = pymunk.Body(MASS, 500, pymunk.Body.DYNAMIC)
         back.position = (INIT_X+DIST_WHEEL, INIT_Y)
         back_shape = pymunk.Circle(back, RADIUS_WHEEL)
         back_shape.density = 1
         back_shape.elasticity = 0.0
         back_shape.friction = 0.4
-        
+
         frame = pymunk.constraints.PinJoint(front, back)
 
     #################
@@ -225,7 +225,7 @@ async def main():
         COLLTYPE_TERRAIN = 2
 
 
-    # types of terrains: 
+    # types of terrains:
     # - flat
     # - x**2 ramp
     # - sine mountain
@@ -267,7 +267,7 @@ async def main():
                 )
                 trk_shape.density = 1
                 trk_shape.collision_type = COLLTYPE_TERRAIN
-                trk_shape.user_data = i  
+                trk_shape.user_data = i
                 trk_shape.elasticity = 0
                 trk_shape.friction = 0.4
                 track.append(trk_shape)
@@ -449,7 +449,7 @@ async def main():
                     click = True
                 if event.type == pygame.KEYUP or event.type == pygame.MOUSEBUTTONUP:
                     click = False
-            
+
 
 
             # prevent 'collision hangovers'
@@ -537,7 +537,7 @@ async def main():
 
 
 
-    
+
             flipping_before = flipping
 
             bo_before = bike_orientation
@@ -565,7 +565,7 @@ async def main():
                     pygame.draw.line(screen, color_track[2], relative(t.a), relative(t.b), 24)
                     pygame.draw.line(screen, color_track[3], relative(t.a), relative(t.b), 16)
                     pygame.draw.line(screen, 'white', relative(t.a), relative(t.b), 8)
-                
+
 
             for t in track:
                 if distance(vector(t.a), vector(t.b)) < 2*STEP:
@@ -614,6 +614,7 @@ async def main():
             await asyncio.sleep(0)
     pygame.quit()
     sys.exit()
+
 
 
 if __name__ == "__main__":
